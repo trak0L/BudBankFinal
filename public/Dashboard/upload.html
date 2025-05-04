@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Import CSV Data</title>
+  <style>
+
+    .back-button-container {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+    }
+
+    .back-button {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 15px;
+      text-decoration: none;
+      color: black;
+      border: 1px solid black;
+      border-radius: 5px;
+      background-color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .back-button:hover {
+      background-color: lightgray;
+    }
+
+    .back-arrow {
+      margin-right: 5px;
+      font-size: 1em;
+    }
+
+    .upload-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 100px;
+    }
+
+    .upload-box {
+      border: 2px solid black;
+      padding: 30px;
+      text-align: center;
+    }
+
+    input[type="file"] {
+      margin-top: 20px;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="upload-container">
+    <h1>Import CSV Data</h1>
+    <div class="upload-box">
+      <label for="csvUpload">Choose CSV File:</label>
+      <input type="file" id="csvUpload" onchange="uploadFile(this.files)" accept=".csv">
+    </div>
+  </div>
+
+  <div class="back-button-container">
+    <a href="Dashboard.html" class="back-button">
+      <span class="back-arrow">←</span> Back
+    </a>
+  </div>
+
+  <script type="module">
+    import { app, storage } from "./firebase-config.js";
+    import { ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
+
+    window.uploadFile = async function(files) {
+      const file = files.item(0);
+
+      if (file && file.type === 'text/csv') {
+        console.log("Storage object:", storage); // Added for debugging
+        const storageRef = ref(storage, `csv_uploads/${file.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        uploadTask.on('state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log('Upload is ' + progress + '% done');
+            switch (snapshot.state) {
+              case 'paused':
+                console.log('Upload is paused');
+                break;
+              case 'running':
+                console.log('Upload is running');
+                break;
+            }
+          },
+          (error) => {
+            console.error("Error uploading file:", error);
+          },
+          () => {
+            getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+              console.log('File available at', downloadURL);
+              alert('CSV file uploaded successfully! Download URL: ' + downloadURL);
+              // Further processing of downloadURL can go here
+            });
+          }
+        );
+      } else if (file) {
+        alert('Please select a valid .csv file.');
+      } else {
+        alert('No file selected.');
+      }
+    };
+  </script>
+
+</body>
+</html>

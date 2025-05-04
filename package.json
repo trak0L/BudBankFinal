@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@firebase/storage": "^0.13.7",
+    "csv-parser": "^3.2.0",
+    "firebase": "^11.6.1",
+    "startbootstrap-sb-admin-2": "^4.1.4"
+  }
+}
