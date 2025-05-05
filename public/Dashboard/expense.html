@@ -1,0 +1,519 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <title>The HTML5 Herald</title>
+  
+  <script>
+
+    let expenseChartInstance = null;
+    let budgetChartInstance = null;
+
+    categories = [];
+    
+    expenses = [];
+
+    function saveData() {
+    localStorage.setItem('categories', JSON.stringify(categories));
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+}
+
+function saveIncome(income) {
+    localStorage.setItem('income', income);
+}
+
+    function loadData() {
+    const storedCategories = JSON.parse(localStorage.getItem('categories') || '[]');
+    const storedExpenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+
+    document.getElementById('incomeDisplay').innerHTML = localStorage.getItem('income');
+
+    categories = storedCategories.map(cat => new category(cat.name, cat.color, cat.budget));
+    expenses = storedExpenses.map(exp => {
+        const matchedCategory = categories.find(cat => cat.name === exp.category.name);
+        return new expense(exp.name, exp.amount, matchedCategory, exp.frequency, exp.need);
+    });
+}
+
+
+   
+    function getCatName(category)
+    {
+        return category.name;
+    }
+
+    function getCatColor(category)
+    {
+        return category.color;
+    }
+
+    function expensePieChart() {
+    const groupedExpenses = {};
+
+    for (const expense of expenses) {
+        const category = expense.category.name;
+        if (!groupedExpenses[category]) {
+            groupedExpenses[category] = 0;
+        }
+        groupedExpenses[category] += Number(expense.amount);
+    }
+
+    const xValues = categories.map(getCatName);
+    const yValues = categories.map(cat => groupedExpenses[cat.name] || 0);
+    const barColors = categories.map(getCatColor);
+
+    const ctx = document.getElementById("expenseChart").getContext("2d");
+
+    if (expenseChartInstance) {
+        // If chart already exists, just update the data
+        expenseChartInstance.data.labels = xValues;
+        expenseChartInstance.data.datasets[0].data = yValues;
+        expenseChartInstance.data.datasets[0].backgroundColor = barColors;
+        expenseChartInstance.update();
+    } else {
+        // Create chart once
+        expenseChartInstance = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: xValues,
+                datasets: [{
+                    label: "Total Expense by Category",
+                    data: yValues,
+                    backgroundColor: barColors
+                }]
+            },
+            options: {
+                responsive: false
+            }
+        });
+    }
+}
+
+function budgetPieChart() {
+    const xValues = categories.map(cat => cat.name);
+    const yValues = categories.map(cat => cat.budget);
+    const barColors = categories.map(getCatColor);
+
+    const ctx = document.getElementById("budgetChart").getContext("2d");
+
+    if (budgetChartInstance) {
+        budgetChartInstance.data.labels = xValues;
+        budgetChartInstance.data.datasets[0].data = yValues;
+        budgetChartInstance.data.datasets[0].backgroundColor = barColors;
+        budgetChartInstance.update();
+    } else {
+        budgetChartInstance = new Chart(ctx, {
+            type: "pie",
+            data: {
+                labels: xValues,
+                datasets: [{
+                    label: "Budget Allocation",
+                    data: yValues,
+                    backgroundColor: barColors
+                }]
+            },
+            options: {
+                responsive: false
+            }
+        });
+    }
+}
+
+    function category(name, color, budget)
+    {
+        this.name = name;
+        this.color = color;
+        this.budget = budget;
+    }
+
+    function expense(name, amount, category, frequency,need)
+    {
+        this.name = name;
+        this.amount = amount;
+        this.category = category;
+        this.frequency = frequency;
+        this.need = need;
+    }
+    
+    function addCategory(name,color,budget)
+    {
+        categories.push(new category(name,color,budget));
+        saveData();
+    }
+
+    function addExpense()
+    {
+        expenseName = document.getElementById('expenseName').value;
+        amount = document.getElementById('expenseAmount').value;
+        categoryName = document.getElementById('selectCategory').value;
+        var tempCategory = categories.find(category => category.name === categoryName);
+        need = document.getElementById('need').value;
+
+        if(document.getElementById("expenseFrequency1").value==="Repeat "){
+            frequency = document.getElementById("expenseFrequency1").value+ document.getElementById("expenseFrequency2").value + document.getElementById("expenseFrequency3").value;
+        }else{
+            frequency = frequency = document.getElementById("expenseFrequency1").value;
+        }
+        
+
+        expenses.push(new expense(expenseName,amount,tempCategory,frequency,need));
+        saveData();
+       
+    }
+
+    function displayCategories()
+    {
+        clearRows("categoryTable");
+        var table = document.getElementById("categoryTable");
+        
+        
+        for (let i = 0; i < categories.length; i++) {
+            var tr = table.insertRow();
+            var tdName = tr.insertCell();
+            tdName.innerHTML = capitalize(categories[i].name);
+
+            var tdBudget = tr.insertCell();
+            tdBudget.innerHTML = '$' + categories[i].budget;
+
+
+            // Delete button
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "btn btn-sm btn-danger";
+            deleteBtn.innerText = "Delete";
+            deleteBtn.onclick = () => {
+            // Remove related expenses first
+            expenses = expenses.filter(exp => exp.category.name !== categories[i].name);
+            // Then remove the category
+            categories.splice(i, 1);
+            saveData();
+            displayCategories();
+            displayExpenses(); // Refresh both
+        };
+        var tdDelete = tr.insertCell();
+        tdDelete.appendChild(deleteBtn);
+
+        tr.style.backgroundColor = categories[i].color;
+        budgetPieChart();
+        
+}   
+  
+    }
+
+    function displayExpenses()
+    {
+
+        clearRows("expenseTable")
+        var table = document.getElementById("expenseTable");
+        
+        
+        for (let i = 0; i < expenses.length; i++) {
+        
+            var tr = table.insertRow();
+            tr.insertCell(0).innerHTML = capitalize(expenses[i].name);
+            tr.insertCell(1).innerHTML = '$'+expenses[i].amount;
+            tr.insertCell(2).innerHTML = capitalize(expenses[i].category.name);
+            tr.insertCell(3).innerHTML = expenses[i].frequency;
+            tr.insertCell(4).innerHTML = expenses[i].need;
+            
+            // Delete button
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "btn btn-sm btn-danger";
+            deleteBtn.innerText = "Delete";
+            deleteBtn.onclick = () => {
+                expenses.splice(i, 1); // Remove the item
+                saveData();
+                displayExpenses();     // Refresh
+            };
+            tr.insertCell(5).appendChild(deleteBtn);
+            
+            tr.style.backgroundColor = expenses[i].category.color;
+            tr.id = expenses[i].name;
+
+            
+            
+
+        }
+
+        expensePieChart();
+        
+    }
+   
+    function clearRows(tableid)
+    {
+        var table = document.getElementById(tableid);
+
+
+        for(var i = table.rows.length - 1; i > 0; i--)
+            {
+                table.deleteRow(i);
+            }
+
+    }
+
+    function capitalize(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+    }
+
+    function showFreqSubSelects()
+    {
+        
+        document.getElementById("expenseFrequency2").hidden=false;
+        document.getElementById("expenseFrequency3").hidden=false;
+
+        
+        
+
+    }
+
+    function arrayToSelect()
+    {
+        selectElement = document.getElementById('selectCategory');
+
+        selectElement.options.length = 0;
+
+        for (let i = 0; i < categories.length; i++) {
+            const option = document.createElement('option');
+            option.value = categories[i].name;
+            option.text = capitalize(categories[i].name);
+            selectElement.appendChild(option);
+        };
+    }
+
+    window.onload = function () {
+    loadData();
+    displayCategories();
+    displayExpenses();
+    
+};
+
+
+
+
+  </script>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.1.1/chart.min.js"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.1.1/helpers.esm.min.js"></script>
+</head>
+
+<body>
+
+
+<div class="d-flex justify-content-evenly">
+    
+    <div class="d-flex flex-column align-items-left">
+        
+    <a href="upload.html" class="btn btn-secondary" role="button">Upload CSV</a>
+    
+        <a href="Dashboard.html" class="btn btn-secondary" role="button">Back</a>
+    </div>
+    <div class = "d-flex flex-column align-items-center" id="displayExpenses">
+        <h1 class="display-6">Expense Dashboard</h1>
+        
+    <div class="d-flex flex-row" > 
+        <canvas display="block" height="300" width="300" id="expenseChart"> </canvas>
+    </div>
+
+        <div class="d-flex flex-row" id="expenseTableDiv">
+        
+    
+        <table class="table" id="expenseTable">
+            <thead>
+            <tr>
+             <td>Expense</td>
+             <td>Amount</td>
+             <td>Category</td>
+             <td>Frequency</td>
+             <td>Want or Need</td>
+             <td>Delete</td>
+            </tr>
+            </thead>
+            <tbody>
+               
+            </tbody>
+          </table>
+        
+        
+        </div>
+
+        <div class="d-flex flex-row justify-content-left">
+            <!-- Button trigger AEmodal -->
+           <button type="button" class="btn btn-primary" onclick="arrayToSelect()"  data-toggle="modal" data-target="#AEModal">
+               Add Expense </button>
+        </div>
+    </div>
+
+   
+<!--category col-->
+    
+    <div class = "d-sm-flex" id="displayCategories">
+    <div class="container">
+        <h1 class="display-6">Budget</h1>
+        <form>
+            <!--Name-->
+            <div class="mb-3">
+              
+              <label for="income" class="form-label">Monthly Income:</label>
+              <heading class="h6" id="incomeDisplay"></heading>
+              <input type="text" class="form-control" id="income" > 
+              <button class="btn btn-primary" onclick="event.preventDefault(); document.getElementById('incomeDisplay').innerHTML = '$' + document.getElementById('income').value; saveIncome('$'+ document.getElementById('income').value);">Submit</button>
+
+            </div>
+        </form>
+    
+        <div class="d-flex flex-row">
+            <canvas id="budgetChart" width="300" height="300"></canvas>
+          </div>
+
+     <table class="table" id="categoryTable">
+            <thead>
+            <tr><td>Category</td><td>Budget</td><td>Delete</td></tr>
+            </thead>
+            <tbody>
+           
+            </tbody>
+            </table>
+
+        <!-- Button trigger ACmodal -->
+    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#ACModal">
+        Add Category 
+        </button>
+
+    </div>
+    </div>
+</div>
+ 
+
+
+
+
+<!-- AEModal -->
+<div class="modal fade" id="AEModal" tabindex="-1" aria-labelledby="AEModal" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLabel">New Expense</h5>
+        <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <form>
+            <!--Name-->
+            <div class="mb-3">
+              <label for="ExpenseName" class="form-label">Name</label>
+              <input type="text" class="form-control" id="expenseName" > 
+            </div>
+            
+            <!--Amount-->
+            <div class="mb-3">
+              <label for="ExpenseAmount" class="form-label">Amount</label>
+              <input type="number" class="form-control" id="expenseAmount">
+            </div>
+
+    
+        </form>
+        <div>
+            <select class="form-select" id="selectCategory">
+                <option selected>Category</option>
+            </select>
+        </div>
+
+        <div>
+            <select class="form-select" id="need">
+                <option selected>Want or Need?</option>
+                <option value="Want">Want</option>
+                <option value="Need">Need</option>
+            </select>
+        </div>
+          <select class="form-select" onchange="showFreqSubSelects()" id="expenseFrequency1">
+            <option selected>Repeat Expense?</option>
+            <option value="Repeat ">Repeat</option>
+            <option value="One Time ">Do Not Repeat</option>
+          </select>
+
+          <select class="form-select" hidden id="expenseFrequency2">
+            <option selected>Frequency</option>
+            <option value="Every ">Every</option>
+            <option value="Every Other ">Every Other</option>
+          </select>
+
+          <select class="form-select" hidden id="expenseFrequency3">
+            <option selected>Time Period</option>
+            <option value="Day">Day</option>
+            <option value="Week">Week</option>
+            <option value="Month">Month</option>
+          </select>
+
+          
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" data-dismiss="modal" onclick="addExpense();displayExpenses();document.getElementById('expenseChart').update();displayUpcomingExpenses();">Save changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!--End AEModal-->
+
+
+<!--AC Modal-->
+  <div class="modal fade" id="ACModal" tabindex="-1" aria-labelledby="AEModal" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLabel">New Category</h5>
+          <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
+        </div>
+  
+        <div class="modal-body">
+            <form>
+                <!--Name-->
+                <div class="mb-3">
+                  <label for="CategoryName" class="form-label">Name</label>
+                  <input type="text" class="form-control" id="categoryName" > 
+
+                </div>
+
+                <div class="mb-3">
+                    <label for="categoryBudget" class="form-label">Allotted Budget</label>
+                    <input type="number" class="form-control" id="categoryBudget">
+                </div>
+            </form>
+
+
+            
+            <div>
+                <select class="form-select" id="categoryColor">
+                    <option selected>Color</option>
+                    <option value="tomato">Red</option>
+                    <option value="lightsalmon">Orange</option>
+                    <option value="gold">Yellow</option>
+                    <option value="darkseagreen">Green</option>
+                    <option value="dodgerblue">Blue</option>
+                    <option value="mediumslateblue">Purple</option>
+                  </select>
+                  
+            </div>
+            
+            
+        </div>
+  
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" data-dismiss="modal" onclick="addCategory(document.getElementById('categoryName').value,document.getElementById('categoryColor').value, document.getElementById('categoryBudget').value);displayCategories();">Save changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+<!--End ACModal-->
+  
+
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.7/dist/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+</body>
+</html>
